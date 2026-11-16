@@ -1,4 +1,3 @@
-
 //Camera
 var cam = view_camera[0];
 
@@ -19,6 +18,11 @@ var end_y = min(
 	world_height,
 	ceil((cam_y + cam_height) /tile_size) + 1);
 
+// Frame counts are cached in Create (terrain_frame_count) and the animation
+// phase is resolved once per frame, so the tile loop is two array reads and a
+// mod instead of a sprite_get_number() call per tile.
+var _phase = floor(anim_timer);
+
 //Draw only visible tiles
 for(var tile_y = start_y; tile_y < end_y; tile_y++)
 {
@@ -28,8 +32,7 @@ for(var tile_y = start_y; tile_y < end_y; tile_y++)
 		var terrain = terrain_grid[index];
 		
 		var _spr = terrain_sprite[terrain];
-		var _count = sprite_get_number(_spr);
-		var _frame = floor(anim_timer) mod _count;
+		var _frame = _phase mod terrain_frame_count[terrain];
 		
 		draw_sprite(
 			_spr,

@@ -1,8 +1,9 @@
-/// @func scr_line_is_clear(_x0, _y0, _x1, _y1)
+/// @func scr_line_is_clear(_x0, _y0, _x1, _y1, _class)
 /// @desc Bresenham line check. Returns true if every tile between
 ///       (_x0,_y0) and (_x1,_y1) [exclusive of start, inclusive of end]
-///       is walkable — not water, not blocked (resources, buildings).
-function scr_line_is_clear(_x0, _y0, _x1, _y1)
+///       is walkable for a unit of terrain class _class ("land", "water",
+///       "air") — correct terrain, not blocked.
+function scr_line_is_clear(_x0, _y0, _x1, _y1, _class = "land")
 {
     var _w       = obj_world.world_width;
     var _h       = obj_world.world_height;
@@ -29,8 +30,8 @@ function scr_line_is_clear(_x0, _y0, _x1, _y1)
         {
             var _idx = _cx + _cy * _w;
 
-            if (_terrain[_idx] == TERRAIN.WATER) return false;
-            if (_block[_idx]   == 1)             return false;
+            if (!scr_terrain_ok_for_class(_class, _terrain[_idx] == TERRAIN.WATER)) return false;
+            if (_block[_idx] == 1) return false;
         }
 
         // Reached the goal

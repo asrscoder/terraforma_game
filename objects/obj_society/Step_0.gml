@@ -5,6 +5,10 @@ if (scan_timer <= 0)
 {
     scan_timer = scan_interval;
     scr_try_form_villages();
+
+    // Fill the beds after the society pass: role assignment has already pulled
+    // out everyone it needs, so only genuinely idle members go indoors.
+    scr_housing_tick();
 }
 
 reproduction_timer++;

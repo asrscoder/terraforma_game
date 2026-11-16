@@ -36,8 +36,8 @@ function scr_create_village(_cx, _cy, _radius, _founder_type, _kingdom_id = -1, 
         rally_active: false,
         rally_age:    0,
 
-        resources:     { wood: 0, stone: 0 },
-        resource_caps: { wood: 500, stone: 500 },
+        resources:     { wood: 0, stone: 0, iron: 0 },
+        resource_caps: { wood: 500, stone: 500, iron: 300 },
 
         construction_id: noone,
         building_id:     noone,
@@ -45,6 +45,16 @@ function scr_create_village(_cx, _cy, _radius, _founder_type, _kingdom_id = -1, 
 
         territory_rects: [_founding_rect],
         expansion_request: false,
+
+        // Cached territory render (rebuilt only when the territory changes)
+        territory_fill_surf:     -1,
+        territory_border_surf:   -1,
+        territory_surf_left:     -1,
+        territory_surf_top:      -1,
+        territory_surf_right:    -1,
+        territory_surf_bottom:   -1,
+        territory_surf_seen:     0,
+        territory_dirty:         true,
 
         origin_cx: _cx,
         origin_cy: _cy,

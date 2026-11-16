@@ -27,14 +27,17 @@ function scr_try_harvest(_unit)
         if (_res == RESOURCE.TREE)
         {
             _v.resources.wood = min(_v.resource_caps.wood, _v.resources.wood + irandom_range(1, 4));
-            obj_world.resource_grid[_idx] = RESOURCE.NONE;
-            obj_world.block_grid[_idx]    = 0;
+            scr_resource_harvested(_idx, _res);
         }
         else if (_res == RESOURCE.STONE)
         {
             _v.resources.stone = min(_v.resource_caps.stone, _v.resources.stone + irandom_range(1, 4));
-            obj_world.resource_grid[_idx] = RESOURCE.NONE;
-            obj_world.block_grid[_idx]    = 0;
+            scr_resource_harvested(_idx, _res);
+        }
+        else if (_res == RESOURCE.IRON)
+        {
+            _v.resources.iron = min(_v.resource_caps.iron, _v.resources.iron + irandom_range(1, 3));
+            scr_resource_harvested(_idx, _res);
         }
 
         global.villages[_unit.village_id] = _v;

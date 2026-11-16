@@ -26,13 +26,25 @@ for (var _ty = _start_y; _ty < _end_y; _ty++)
     for (var _tx = _start_x; _tx < _end_x; _tx++)
     {
         var _idx = _tx + _ty * _w;
-        if (_grid[_idx] != RESOURCE.STONE) continue;
+        var _res = _grid[_idx];
 
-        draw_sprite(
-            spr_resource_stone,
-            _frame,
-            _tx * _ts,
-            _ty * _ts
-        );
+        if (_res == RESOURCE.STONE)
+        {
+            draw_sprite(
+                spr_resource_stone,
+                _frame,
+                _tx * _ts,
+                _ty * _ts
+            );
+        }
+        else if (_res == RESOURCE.IRON)
+        {
+            draw_sprite(
+                spr_resource_iron,
+                _frame,
+                _tx * _ts,
+                _ty * _ts
+            );
+        }
     }
 }

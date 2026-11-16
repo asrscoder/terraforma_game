@@ -85,6 +85,7 @@ function scr_add_territory_strip(_village_id, _target_gx, _target_gy)
 
     // Add strip
     array_push(_v.territory_rects, _strip);
+    _v.territory_dirty = true;
     global.villages[_village_id] = _v;
 
     // Sync to territory_grid

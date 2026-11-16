@@ -32,9 +32,9 @@ function scr_place_construction(_village_id)
 
     _inst.x             = _cx * _ts + _ts * 0.5;
     _inst.y             = (_cy + 2) * _ts;
-    _inst.sprite_index  = spr_building_construction_24;
     _inst.building_type = "town_hall";
     _inst.building_size = 24;
+    _inst.sprite_index  = scr_construction_sprite(_inst.building_type);
 
     var _kingdom = global.kingdoms[_v.kingdom_id];
     _inst.level = _kingdom.advancement_level;
@@ -59,6 +59,10 @@ function scr_place_construction(_village_id)
             obj_world.block_grid[_gx + _gy * _w] = 1;
         }
     }
+
+    // Mark the footprint + 1-tile gap so placement tests stop scanning
+    // every obj_building for every candidate tile.
+    scr_bpad_add(_inst);
 
     _v.construction_id = _inst;
     global.villages[_village_id] = _v;

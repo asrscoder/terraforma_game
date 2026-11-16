@@ -51,7 +51,7 @@ function scr_try_found_from_rally()
 
         global.kingdoms[_k] = _kingdom;
 
-        // Leader hasn't picked a spot yet
+        // No rally spot set (should not happen; the spot is chosen up front).
         if (_rx == -1) continue;
 
         // ---- Count arrivals ----

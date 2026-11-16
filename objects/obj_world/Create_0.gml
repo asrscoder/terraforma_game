@@ -1,8 +1,8 @@
 depth = DEPTH.TERRAIN;
 
 // === World Dimensions ===
-world_width  = 512;
-world_height = 512;
+world_width  = 256;
+world_height = 256;
 tile_size    = 8;
 
 // === Terrain IDs ===
@@ -22,6 +22,7 @@ enum RESOURCE {
     NONE  = 0,
     TREE  = 1,
     STONE = 2,
+    IRON  = 3,
 }
 
 // === World seed ===
@@ -159,15 +160,28 @@ _tree_threshold	Density
 resource_grid = array_create(world_width * world_height, RESOURCE.NONE);
 block_grid    = array_create(world_width * world_height, 0);
 
+// === Padded building occupancy ===
+// Every placed building marks its footprint plus the 1-tile gap around it
+// (see scr_building_pad). Building placement tests read this grid one tile at
+// a time instead of scanning every obj_building for every candidate tile.
+building_pad_grid = array_create(world_width * world_height, 0);
+
 // Tree noise parameters
-var _tree_scale     = 0.55 / sqrt(_size_scale);
+var _tree_scale     = 0.5 / sqrt(_size_scale);
 var _tree_seed      = irandom(10000) + 1001;
 var _tree_threshold = 0.6;
 
+
 // Stone noise parameters
-var _stone_scale     = 0.22 / sqrt(_size_scale);
+var _stone_scale     = 0.4 / sqrt(_size_scale);
 var _stone_seed      = irandom(10000) + 2002;
-var _stone_threshold = 0.58;
+var _stone_threshold = 0.65;
+
+// Iron noise parameters (rarer than stone; generated before stone so that a
+// tile which also qualifies for stone ends up as stone)
+var _iron_scale     = 0.45 / sqrt(_size_scale);
+var _iron_seed      = irandom(10000) + 3003;
+var _iron_threshold = 0.7;
 
 for (var tile_y = 0; tile_y < world_height; tile_y++)
 {
@@ -196,6 +210,21 @@ for (var tile_y = 0; tile_y < world_height; tile_y++)
             }
         }
 
+        // Iron on grass or sand. Deliberately does not continue: the stone
+        // pass below may claim the same tile, so stone always wins overlaps.
+        var _in = scr_noise_2d_octaves(
+            tile_x * _iron_scale,
+            tile_y * _iron_scale,
+            _iron_seed,
+            2,
+            0.5
+        );
+        if (_in > _iron_threshold)
+        {
+            resource_grid[index] = RESOURCE.IRON;
+            block_grid[index]    = 1;
+        }
+
         // Stone on grass or sand
         var _sn = scr_noise_2d_octaves(
             tile_x * _stone_scale,
@@ -212,6 +241,10 @@ for (var tile_y = 0; tile_y < world_height; tile_y++)
     }
 }
 
+// === Resource respawn system ===
+// Counts the generated resources, sets the caps and starts the regrow timers.
+scr_resource_respawn_init();
+
 // === Terrain sprite lookup ===
 terrain_sprite = [
     spr_land_tiles,
@@ -220,8 +253,36 @@ terrain_sprite = [
     spr_grass_tiles,
 ];
 
+// Frame count per terrain sprite, cached once. The draw loop used to call
+// sprite_get_number() for every visible tile (thousands per frame).
+terrain_frame_count = array_create(array_length(terrain_sprite), 1);
+for (var _ti = 0; _ti < array_length(terrain_sprite); _ti++)
+{
+    var _tn = sprite_get_number(terrain_sprite[_ti]);
+    terrain_frame_count[_ti] = (_tn > 0) ? _tn : 1;
+}
+
 // === Terrain animation clock ===
 anim_timer = 0;
 anim_speed = 0.15;
 
 global.is_paused = false;
+
+// Development logging switch. Leave false for normal play: show_debug_message
+// is a synchronous Output write, so per-scan logging costs real frames.
+// Turn it on temporarily when debugging expansion / placement.
+global.debug_logs = false;
+
+// Pathfinding budget: how many ambient A* searches (unit wandering) may run in
+// one frame. A burst of units all re-planning on the same frame is what turns a
+// single expensive frame into a visible hitch, so the excess is deferred to the
+// next frame instead. Raise it if crowds feel sluggish; lower it if frame time
+// still spikes. Searches that must succeed (founding, miner targeting) are not
+// counted against this.
+global.pf_budget_max = 8;
+global.pf_budget     = global.pf_budget_max;
+
+// How many units are currently indoors. Maintained by scr_unit_house() /
+// scr_unit_wake(); shown in the debug readout so housing can be verified at a
+// glance without scanning every unit.
+global.housed_units = 0;

@@ -78,8 +78,8 @@ function scr_get_building_sprite(_type, _era, _is_roof = false)
 
         case "barracks":
             // Barracks exist in every era; era 3+ reuse the era-2 building.
-            // No roof mask: art is kingdom-neutral.
-            if (_is_roof) return -1;
+            // The roof mask tints the flag/banner with the kingdom colour.
+            if (_is_roof) return (_era >= 2) ? spr_building_barracks_era2_roof : spr_building_barracks_era1_roof;
             return (_era >= 2) ? spr_building_barracks_era2 : spr_building_barracks_era1;
             break;
 

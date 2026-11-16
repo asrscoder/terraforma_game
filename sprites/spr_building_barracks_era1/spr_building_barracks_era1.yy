@@ -12,15 +12,15 @@
   "edgeFiltering":false,
   "For3D":false,
   "frames":[
-    {"$GMSpriteFrame":"v1","%Name":"03e1810d-7d0b-4d52-8230-db1486d35ff8","name":"03e1810d-7d0b-4d52-8230-db1486d35ff8","resourceType":"GMSpriteFrame","resourceVersion":"2.0",},
-    {"$GMSpriteFrame":"v1","%Name":"0fa7ede2-41e2-420d-b178-c3b15375f67a","name":"0fa7ede2-41e2-420d-b178-c3b15375f67a","resourceType":"GMSpriteFrame","resourceVersion":"2.0",},
+    {"$GMSpriteFrame":"v1","%Name":"38440336-fbd3-451c-a63b-2970dbd41324","name":"38440336-fbd3-451c-a63b-2970dbd41324","resourceType":"GMSpriteFrame","resourceVersion":"2.0",},
+    {"$GMSpriteFrame":"v1","%Name":"1b2fb6ca-aa8c-4fe5-8178-67e55c300452","name":"1b2fb6ca-aa8c-4fe5-8178-67e55c300452","resourceType":"GMSpriteFrame","resourceVersion":"2.0",},
   ],
   "gridX":0,
   "gridY":0,
   "height":24,
   "HTile":false,
   "layers":[
-    {"$GMImageLayer":"","%Name":"c86237ed-2e38-4061-94a3-be6f3c1c1caa","blendMode":0,"displayName":"default","isLocked":false,"name":"c86237ed-2e38-4061-94a3-be6f3c1c1caa","opacity":100.0,"resourceType":"GMImageLayer","resourceVersion":"2.0","visible":true,},
+    {"$GMImageLayer":"","%Name":"a46a6189-9b65-4100-939a-2131898b33a8","blendMode":0,"displayName":"default","isLocked":false,"name":"a46a6189-9b65-4100-939a-2131898b33a8","opacity":100.0,"resourceType":"GMImageLayer","resourceVersion":"2.0","visible":true,},
   ],
   "name":"spr_building_barracks_era1",
   "nineSlice":null,
@@ -70,11 +70,11 @@
     "tracks":[
       {"$GMSpriteFramesTrack":"","builtinName":0,"events":[],"inheritsTrackColour":true,"interpolation":1,"isCreationTrack":false,"keyframes":{"$KeyframeStore<SpriteFrameKeyframe>":"","Keyframes":[
             {"$Keyframe<SpriteFrameKeyframe>":"","Channels":{
-                "0":{"$SpriteFrameKeyframe":"","Id":{"name":"03e1810d-7d0b-4d52-8230-db1486d35ff8","path":"sprites/spr_building_barracks_era1/spr_building_barracks_era1.yy",},"resourceType":"SpriteFrameKeyframe","resourceVersion":"2.0",},
-              },"Disabled":false,"id":"e9d04051-a53c-413c-a386-77e0bfa3d29f","IsCreationKey":false,"Key":0.0,"Length":1.0,"resourceType":"Keyframe<SpriteFrameKeyframe>","resourceVersion":"2.0","Stretch":false,},
+                "0":{"$SpriteFrameKeyframe":"","Id":{"name":"38440336-fbd3-451c-a63b-2970dbd41324","path":"sprites/spr_building_barracks_era1/spr_building_barracks_era1.yy",},"resourceType":"SpriteFrameKeyframe","resourceVersion":"2.0",},
+              },"Disabled":false,"id":"4d146bbb-08dd-4bdb-9269-711eb54cc92c","IsCreationKey":false,"Key":0.0,"Length":1.0,"resourceType":"Keyframe<SpriteFrameKeyframe>","resourceVersion":"2.0","Stretch":false,},
             {"$Keyframe<SpriteFrameKeyframe>":"","Channels":{
-                "0":{"$SpriteFrameKeyframe":"","Id":{"name":"0fa7ede2-41e2-420d-b178-c3b15375f67a","path":"sprites/spr_building_barracks_era1/spr_building_barracks_era1.yy",},"resourceType":"SpriteFrameKeyframe","resourceVersion":"2.0",},
-              },"Disabled":false,"id":"4ca9e109-87ca-4b6c-bbfc-00302c378663","IsCreationKey":false,"Key":1.0,"Length":1.0,"resourceType":"Keyframe<SpriteFrameKeyframe>","resourceVersion":"2.0","Stretch":false,},
+                "0":{"$SpriteFrameKeyframe":"","Id":{"name":"1b2fb6ca-aa8c-4fe5-8178-67e55c300452","path":"sprites/spr_building_barracks_era1/spr_building_barracks_era1.yy",},"resourceType":"SpriteFrameKeyframe","resourceVersion":"2.0",},
+              },"Disabled":false,"id":"44cda6ca-5519-4194-8421-ee27baee9b46","IsCreationKey":false,"Key":1.0,"Length":1.0,"resourceType":"Keyframe<SpriteFrameKeyframe>","resourceVersion":"2.0","Stretch":false,},
           ],"resourceType":"KeyframeStore<SpriteFrameKeyframe>","resourceVersion":"2.0",},"modifiers":[],"name":"frames","resourceType":"GMSpriteFramesTrack","resourceVersion":"2.0","spriteId":null,"trackColour":0,"tracks":[],"traits":0,},
     ],
     "visibleRange":null,

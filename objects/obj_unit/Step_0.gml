@@ -2,23 +2,33 @@
 if (global.is_paused) exit;
 
 // ============================================================
+// HOUSED UNITS DO NOTHING
+// ============================================================
+// A unit inside a building keeps its instance (so member_ids and
+// instance_exists() keep working) but skips the entire Step: AI dispatch,
+// target selection, pathfinding, movement and sprite state. It is also not
+// drawn (scr_unit_house sets visible = false). This is the entire per-unit
+// cost, so housing is what makes large populations affordable.
+// Every code path that gives the unit a job calls scr_unit_wake() first.
+if (housed) exit;
+
+// ============================================================
 // 0. PUSH OUT OF BLOCKED TILE
 // ============================================================
 var _my_idx = grid_x + grid_y * obj_world.world_width;
 if (obj_world.block_grid[_my_idx] == 1)
 {
     var _exempt = false;
-    if (unit_type == "miner")
+    if (can_walk_on_resources)
     {
         var _res = obj_world.resource_grid[_my_idx];
-        if (_res == RESOURCE.TREE || _res == RESOURCE.STONE) _exempt = true;
+        if (_res == RESOURCE.TREE || _res == RESOURCE.STONE || _res == RESOURCE.IRON) _exempt = true;
     }
 
     if (!_exempt)
     {
         var _placed = false;
         var _radius = 1;
-        var _w      = obj_world.world_width;
 
         while (!_placed && _radius <= 5)
         {
@@ -33,8 +43,10 @@ if (obj_world.block_grid[_my_idx] == 1)
 
                     if (!scr_tile_allowed_for_unit(self, _nx, _ny)) continue;
 
-                    x          = _nx * obj_world.tile_size + obj_world.tile_size * 0.5;
-                    y          = _ny * obj_world.tile_size + obj_world.tile_size;
+                    // Spawn and movement use the tile's top-left corner.
+                    // Use the same convention here (was +0.5 x, +1 y).
+                    x          = _nx * obj_world.tile_size;
+                    y          = _ny * obj_world.tile_size;
                     grid_x     = _nx;
                     grid_y     = _ny;
                     walk_path      = [];
@@ -48,16 +60,22 @@ if (obj_world.block_grid[_my_idx] == 1)
     }
 }
 
+// Recompute after push-out; the old _my_idx is stale.
+var _cur_idx = grid_x + grid_y * obj_world.world_width;
+
 // ============================================================
-// YANK BACK: if a non-miner is not on a claimed territory tile, teleport home
+// YANK BACK: units without leave permission must stay on
+// their own village's claimed territory
 // ============================================================
-if (village_id != -1 && unit_type != "miner" && !path_allow_res)
+if (village_id != -1 && !can_leave_territory && !path_allow_res)
 {
-    if (obj_world.territory_grid[_my_idx] != village_id)
+    if (obj_world.territory_grid[_cur_idx] != village_id)
     {
         var _v = global.villages[village_id];
-        x              = _v.cx * obj_world.tile_size + obj_world.tile_size * 0.5;
-        y              = _v.cy * obj_world.tile_size + obj_world.tile_size;
+
+        // Same top-left convention as spawning/movement (was +0.5 x, +1 y).
+        x              = _v.cx * obj_world.tile_size;
+        y              = _v.cy * obj_world.tile_size;
         grid_x         = _v.cx;
         grid_y         = _v.cy;
         walk_path      = [];
@@ -85,365 +103,52 @@ if (array_length(walk_path) == 0)
         var _target_gy           = grid_y;
         var _skip_path           = false;
         var _allow_resource_path = false;
+        var _must_reach          = false;
 
-        // ----------------------------------------------------
-        // MINER
-        // ----------------------------------------------------
-        if (unit_type == "miner")
+        // ---- Dispatch to type-specific AI ----
+        var _ai;
+        if (unit_type == "miner" && village_id != -1)
         {
-            if (harvest_target_x != -1)
-            {
-                var _ridx = harvest_target_x + harvest_target_y * obj_world.world_width;
-
-                if (obj_world.resource_grid[_ridx] == RESOURCE.NONE)
-                {
-                    // Someone else already harvested it
-                    harvest_target_x = -1;
-                    harvest_target_y = -1;
-                    harvest_timer    = 0;
-                    harvest_retries  = 0;
-                    wander_pause_timer = 5;
-                    _skip_path = true;
-                }
-                else if (grid_x == harvest_target_x && grid_y == harvest_target_y)
-                {
-                    harvest_retries = 0;
-                    if (scr_try_harvest(self)) wander_pause_timer = 10;
-                    _skip_path = true;
-                }
-                else if (++harvest_retries > 4)
-                {
-                    // Can't reach it — give up and pick another target
-                    harvest_target_x = -1;
-                    harvest_target_y = -1;
-                    harvest_timer    = 0;
-                    harvest_retries  = 0;
-                    wander_pause_timer = 30;
-                    _skip_path = true;
-                }
-                else
-                {
-                    // Not there yet — (re)path to the target
-                    _target_gx           = harvest_target_x;
-                    _target_gy           = harvest_target_y;
-                    _allow_resource_path = true;
-                    path_cooldown        = irandom_range(5, 15);
-                }
-            }
-            else
-            {
-                var _v = global.villages[village_id];
-                var _wood_full  = (_v.resources.wood  >= _v.resource_caps.wood);
-                var _stone_full = (_v.resources.stone >= _v.resource_caps.stone);
-
-                if (_wood_full && _stone_full)
-                {
-                    if (grid_x != _v.cx || grid_y != _v.cy)
-                    {
-                        _target_gx    = _v.cx;
-                        _target_gy    = _v.cy;
-                        path_cooldown = irandom_range(5, 15);
-                    }
-                    else
-                    {
-                        _target_gx    = grid_x + irandom_range(-3, 3);
-                        _target_gy    = grid_y + irandom_range(-3, 3);
-                        path_cooldown = irandom_range(5, 15);
-                    }
-                }
-                else
-                {
-                    if (scr_find_harvest_target(self))
-                    {
-                        harvest_retries      = 0;
-                        _target_gx           = harvest_target_x;
-                        _target_gy           = harvest_target_y;
-                        path_cooldown        = irandom_range(5, 15);
-                        _allow_resource_path = true;
-                    }
-                    else
-                    {
-                        wander_pause_timer = 30;
-                        _skip_path         = true;
-                    }
-                }
-            }
+            _ai = scr_ai_miner(self);
         }
-        // ----------------------------------------------------
-        // BUILDER
-        // ----------------------------------------------------
         else if (unit_type == "builder")
         {
-            var _site = noone;
-
-            if (build_target_id != noone && instance_exists(build_target_id))
-            {
-                if (build_target_id.state == "construction") _site = build_target_id;
-                else                                        build_target_id = noone;
-            }
-
-            if (_site == noone)
-            {
-                var _best_priority = 9999;
-                var _best_site     = noone;
-
-                with (obj_building)
-                {
-                    if (state != "construction")        continue;
-                    if (village_id != other.village_id) continue;
-
-                    var _prio = 99;
-                    switch (building_type)
-                    {
-                        case "town_hall": _prio = 1; break;
-                        case "mine":      _prio = 2; break;
-                        case "barracks":  _prio = 3; break;
-                        case "house_a":   _prio = 4; break;
-                        case "house_b":   _prio = 5; break;
-                        default:          _prio = 6; break;
-                    }
-
-                    if (_prio < _best_priority)
-                    {
-                        _best_priority = _prio;
-                        _best_site     = id;
-                    }
-                }
-
-                if (_best_site != noone)
-                {
-                    build_target_id = _best_site;
-                    _site           = _best_site;
-                }
-            }
-
-            if (_site != noone)
-            {
-                var _site_gx = floor(_site.x / obj_world.tile_size);
-                var _site_gy = floor(_site.y / obj_world.tile_size);
-                var _dx      = abs(grid_x - _site_gx);
-                var _dy      = abs(grid_y - _site_gy);
-
-                if (_dx > 4 || _dy > 4)
-                {
-                    _target_gx    = _site_gx;
-                    _target_gy    = _site_gy;
-                    path_cooldown = irandom_range(5, 15);
-                }
-                else
-                {
-                    _skip_path = true;
-                }
-            }
-            else
-            {
-                var _wr = max(1, wander_radius);
-                _target_gx = grid_x + irandom_range(-_wr, _wr);
-                _target_gy = grid_y + irandom_range(-_wr, _wr);
-                if (village_id != -1)
-                {
-                    var _v = global.villages[village_id];
-                    _target_gx = clamp(_target_gx, _v.left, _v.right);
-                    _target_gy = clamp(_target_gy, _v.top,  _v.bottom);
-                }
-            }
+            _ai = scr_ai_builder(self);
         }
-        // ----------------------------------------------------
-        // LEADER
-        // ----------------------------------------------------
         else if (unit_type == "leader" && leader_anchor_x != -1)
         {
-            var _wr = max(1, wander_radius);
-            _target_gx = leader_anchor_x + irandom_range(-_wr, _wr);
-            _target_gy = leader_anchor_y + irandom_range(-_wr, _wr);
-            if (village_id != -1)
-            {
-                var _v = global.villages[village_id];
-                _target_gx = clamp(_target_gx, _v.left, _v.right);
-                _target_gy = clamp(_target_gy, _v.top,  _v.bottom);
-            }
+            _ai = scr_ai_leader(self);
         }
-        // ----------------------------------------------------
-        // VILLAGER
-        // ----------------------------------------------------
+        else if (unit_type == "villager" && village_id == -1 && kingdom_id != -1
+              && variable_global_exists("kingdoms") && kingdom_id < array_length(global.kingdoms)
+              && global.kingdoms[kingdom_id].expansion_rally_active)
+        {
+            _ai = scr_ai_colonist(self, global.kingdoms[kingdom_id]);
+        }
         else if (unit_type == "villager")
         {
-            var _must_reach = false;
-
-            if (village_id == -1)
-            {
-                if (!variable_global_exists("village_founder_id"))
-                {
-                    global.village_founder_id = noone;
-                    global.village_founder_x  = -1;
-                    global.village_founder_y  = -1;
-                }
-
-                // 1. COLONIST (expansion rally)
-                //    Unaffiliated villagers that still carry a kingdom_id are colonists.
-                var _is_colonist = false;
-                if (kingdom_id != -1)
-                {
-                    var _k = global.kingdoms[kingdom_id];   // struct reference: edits stick
-                    if (_k.expansion_rally_active)
-                    {
-                        _is_colonist         = true;
-                        _allow_resource_path = true;
-                        _must_reach          = true;
-
-                        // --- Leader chooses the founding spot (once) ---
-                        if (colonist_leader && _k.expansion_rally_x == -1)
-                        {
-                            for (var _r = 12; _r <= 80 && _k.expansion_rally_x == -1; _r += 4)
-                            {
-                                for (var _step = 0; _step < 8 && _k.expansion_rally_x == -1; _step++)
-                                {
-                                    var _sx = grid_x + lengthdir_x(_r, _step * 45);
-                                    var _sy = grid_y + lengthdir_y(_r, _step * 45);
-
-                                    if (_sx < 1 || _sx >= obj_world.world_width  - 1) continue;
-                                    if (_sy < 1 || _sy >= obj_world.world_height - 1) continue;
-
-                                    var _spot = scr_find_town_hall_spot(_sx, _sy);
-                                    if (_spot[0] == -1) continue;
-
-                                    // Keep 10+ tiles from every existing village
-                                    var _too_close = false;
-                                    for (var _vi = 0; _vi < array_length(global.villages); _vi++)
-                                    {
-                                        var _ev  = global.villages[_vi];
-                                        var _ddx = max(_ev.left - _spot[0], 0, _spot[0] - _ev.right);
-                                        var _ddy = max(_ev.top  - _spot[1], 0, _spot[1] - _ev.bottom);
-                                        if (max(_ddx, _ddy) < 10) { _too_close = true; break; }
-                                    }
-                                    if (_too_close) continue;
-
-                                    // Must be reachable (one-off cost)
-                                    if (array_length(scr_find_path(grid_x, grid_y, _spot[0], _spot[1], true)) == 0) continue;
-
-                                    _k.expansion_rally_x = _spot[0];
-                                    _k.expansion_rally_y = _spot[1];
-                                }
-                            }
-                        }
-
-                        if (_k.expansion_rally_x == -1)
-                        {
-                            // Waiting for the leader to pick a spot
-                            _skip_path         = true;
-                            wander_pause_timer = 30;
-                        }
-                        else
-                        {
-                            _target_gx = _k.expansion_rally_x;
-                            _target_gy = _k.expansion_rally_y;
-
-                            var _arrive_r = colonist_leader ? 0 : 3;
-                            if (point_distance(grid_x, grid_y, _target_gx, _target_gy) <= _arrive_r)
-                            {
-                                _skip_path         = true;
-                                wander_pause_timer = 5;
-                            }
-                        }
-                    }
-                }
-
-                // 2. NOT A COLONIST — founding beacon logic
-                if (!_is_colonist)
-                {
-                    if (global.village_founder_id == id)
-                    {
-                        _target_gx = grid_x;
-                        _target_gy = grid_y;
-                        _skip_path = true;
-                    }
-                    else if (global.village_founder_id == noone
-                          || !instance_exists(global.village_founder_id))
-                    {
-                        if (global.village_founder_id != noone)
-                        {
-                            global.village_founder_id = noone;
-                            global.village_founder_x  = -1;
-                            global.village_founder_y  = -1;
-                        }
-                        _target_gx = grid_x + irandom_range(-2, 2);
-                        _target_gy = grid_y + irandom_range(-2, 2);
-                    }
-                    else
-                    {
-                        _target_gx           = global.village_founder_x;
-                        _target_gy           = global.village_founder_y;
-                        _allow_resource_path = true;
-                        _must_reach          = true;
-
-                        if (_target_gx == grid_x && _target_gy == grid_y)
-                        {
-                            wander_pause_timer = 5;
-                            _skip_path         = true;
-                        }
-                    }
-                }
-            }
-            else
-            {
-                // Villager that belongs to a village: just wander inside it.
-                // (The old branch that pulled ALL kingdom villagers to the rally
-                //  point, and cancelled the rally on an out-of-range target, is gone;
-                //  only colonists — village_id == -1 — respond to the rally.)
-                var _wr = max(1, wander_radius);
-                _target_gx = grid_x + irandom_range(-_wr, _wr);
-                _target_gy = grid_y + irandom_range(-_wr, _wr);
-
-                var _v = global.villages[village_id];
-                _target_gx = clamp(_target_gx, _v.left, _v.right);
-                _target_gy = clamp(_target_gy, _v.top,  _v.bottom);
-            }
-
-            if (_must_reach
-             && (!scr_tile_allowed_for_unit(self, _target_gx, _target_gy, _allow_resource_path) && !_allow_resource_path
-              || !scr_line_is_clear(grid_x, grid_y, _target_gx, _target_gy) && !_allow_resource_path))
-            {
-                var _wr = max(1, wander_radius);
-                _target_gx  = grid_x + irandom_range(-_wr, _wr);
-                _target_gy  = grid_y + irandom_range(-_wr, _wr);
-                _must_reach = false;
-            }
-
-            if (_target_gx == grid_x && _target_gy == grid_y && !_skip_path)
-            {
-                wander_pause_timer = 5;
-                _skip_path         = true;
-            }
+            _ai = scr_ai_villager(self);
         }
-        // ----------------------------------------------------
-        // DEFAULT — soldier, farmer, etc.
-        // ----------------------------------------------------
         else
         {
-            var _wr = max(1, wander_radius);
-            _target_gx = grid_x + irandom_range(-_wr, _wr);
-            _target_gy = grid_y + irandom_range(-_wr, _wr);
-            if (village_id != -1)
-            {
-                var _v = global.villages[village_id];
-                _target_gx = clamp(_target_gx, _v.left, _v.right);
-                _target_gy = clamp(_target_gy, _v.top,  _v.bottom);
-            }
+            _ai = scr_ai_default(self);
         }
 
-        // ============================================================
-        // TARGET CLAMP: force non-miners to target tiles inside their village
-        // ============================================================
-        if (village_id != -1 && unit_type != "miner" && !_allow_resource_path)
+        _target_gx           = _ai.target_gx;
+        _target_gy           = _ai.target_gy;
+        _skip_path           = _ai.skip_path;
+        _allow_resource_path = _ai.allow_resource_path;
+        _must_reach          = _ai.must_reach;
+
+        // ---- TARGET CLAMP ----
+        if (village_id != -1 && !can_leave_territory && !_allow_resource_path)
         {
             var _v = global.villages[village_id];
             _target_gx = clamp(_target_gx, _v.left, _v.right);
             _target_gy = clamp(_target_gy, _v.top,  _v.bottom);
         }
 
-        // ----------------------------------------------------
-        // Validate target against the gate.
-        // ----------------------------------------------------
+        // ---- Validate target against the gate ----
         if (!_skip_path && !_allow_resource_path)
         {
             if (!scr_tile_allowed_for_unit(self, _target_gx, _target_gy))
@@ -480,9 +185,7 @@ if (array_length(walk_path) == 0)
             }
         }
 
-        // ----------------------------------------------------
-        // Path generation
-        // ----------------------------------------------------
+        // ---- Path generation ----
         if (!_skip_path)
         {
             if (_target_gx < 0 || _target_gx >= obj_world.world_width)  _target_gx = grid_x;
@@ -490,20 +193,22 @@ if (array_length(walk_path) == 0)
 
             if (scr_tile_allowed_for_unit(self, _target_gx, _target_gy, _allow_resource_path))
             {
-                if (scr_line_is_clear(grid_x, grid_y, _target_gx, _target_gy))
+                if (scr_line_is_clear(grid_x, grid_y, _target_gx, _target_gy, unit_class))
                 {
                     walk_path      = [[_target_gx, _target_gy]];
                     walk_index     = 0;
                     path_allow_res = _allow_resource_path;
-                    path_cooldown  = irandom_range(5, 15);
+                    path_cooldown  = irandom_range(20, 45);
                 }
                 else
                 {
-                    var _new_path = scr_find_path(grid_x, grid_y, _target_gx, _target_gy, _allow_resource_path);
+                    // Budgeted: if this frame's allowance is already spent the
+                    // call returns [] and the unit takes the short wiggle step
+                    // below instead, then retries after its cooldown.
+                    var _new_path = scr_find_path(grid_x, grid_y, _target_gx, _target_gy, _allow_resource_path, unit_class, true);
 
                     if (array_length(_new_path) > 0)
                     {
-                        // Post-filter: truncate at the first disallowed tile.
                         var _safe = [];
                         for (var _p = 0; _p < array_length(_new_path); _p++)
                         {
@@ -517,23 +222,22 @@ if (array_length(walk_path) == 0)
                             walk_path      = _safe;
                             walk_index     = 0;
                             path_allow_res = _allow_resource_path;
-                            path_cooldown  = irandom_range(5, 15);
+                            path_cooldown  = irandom_range(20, 45);
                         }
                     }
                 }
             }
 
-            // Fallback wiggle.
+            // Fallback wiggle
             if (array_length(walk_path) == 0)
             {
                 for (var _i = 0; _i < 12; _i++)
                 {
                     var _wx = grid_x + irandom_range(-2, 2);
                     var _wy = grid_y + irandom_range(-2, 2);
-                    if (_wx == grid_x && _wy == grid_y)                    continue;
-                    if (!scr_tile_allowed_for_unit(self, _wx, _wy))        continue;
-                    if (!scr_line_is_clear(grid_x, grid_y, _wx, _wy))      continue;
-
+                    if (_wx == grid_x && _wy == grid_y) continue;
+                    if (!scr_tile_allowed_for_unit(self, _wx, _wy)) continue;
+                    if (!scr_line_is_clear(grid_x, grid_y, _wx, _wy, unit_class)) continue;
                     walk_path      = [[_wx, _wy]];
                     walk_index     = 0;
                     path_allow_res = false;
@@ -546,7 +250,6 @@ if (array_length(walk_path) == 0)
         }
     }
 }
-
 // ============================================================
 // 2. MOVEMENT
 // ============================================================
@@ -557,8 +260,9 @@ if (walk_index < array_length(walk_path))
     var _target_gx = walk_path[walk_index][0];
     var _target_gy = walk_path[walk_index][1];
 
-    // STEP CLAMP: never step outside village bounds
-    if (village_id != -1 && unit_type != "miner" && !path_allow_res)
+    // STEP CLAMP: never step outside village bounds unless the unit
+    // is allowed to leave the village.
+    if (village_id != -1 && !can_leave_territory && !path_allow_res)
     {
         var _v = global.villages[village_id];
         if (_target_gx < _v.left || _target_gx > _v.right

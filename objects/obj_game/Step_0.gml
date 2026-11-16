@@ -23,14 +23,7 @@ if (mouse_check_button_pressed(mb_right))
     drag_start_camera_y = camera_y;
 }
 
-if (mouse_check_button(mb_right))
-{
-    var _delta_x = device_mouse_x_to_gui(0) - drag_start_mouse_x;
-    var _delta_y = device_mouse_y_to_gui(0) - drag_start_mouse_y;
 
-    camera_x = drag_start_camera_x - _delta_x / camera_zoom;
-    camera_y = drag_start_camera_y - _delta_y / camera_zoom;
-}
 
 // ============================================================
 // Debug: unit count
@@ -99,6 +92,18 @@ if (mouse_check_button_pressed(mb_left))
     }
 }
 
+if (mouse_check_button(mb_right))
+{
+    var _delta_x = device_mouse_x_to_gui(0) - drag_start_mouse_x;
+    var _delta_y = device_mouse_y_to_gui(0) - drag_start_mouse_y;
+
+    var _sx = (camera_base_w / camera_zoom) / view_wport[0];
+    var _sy = (camera_base_h / camera_zoom) / view_hport[0];
+
+    camera_x = drag_start_camera_x - _delta_x * _sx;
+    camera_y = drag_start_camera_y - _delta_y * _sy;
+}
+
 // ============================================================
 // Debug: spawn specific types with number keys
 // ============================================================
@@ -122,6 +127,11 @@ if (keyboard_check_pressed(ord("6")))
 {
     scr_spawn_unit(_click_gx, _click_gy, "miner");
 }
+if (keyboard_check_pressed(ord("7")))
+{
+    // Ships only spawn on water — clicking land does nothing.
+    scr_spawn_unit(_click_gx, _click_gy, "ship");
+}
 
 
 // === Debug: print village stockpiles ===
@@ -133,6 +143,7 @@ if (keyboard_check_pressed(ord("K")))
         show_debug_message("Village " + string(_v.id)
             + " | wood=" + string(_v.resources.wood) + "/" + string(_v.resource_caps.wood)
             + " stone=" + string(_v.resources.stone) + "/" + string(_v.resource_caps.stone)
+            + " iron=" + string(_v.resources.iron) + "/" + string(_v.resource_caps.iron)
             + " pop=" + string(array_length(_v.member_ids)));
     }
 }

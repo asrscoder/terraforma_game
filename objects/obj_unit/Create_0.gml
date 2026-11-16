@@ -14,7 +14,8 @@ if (grid_x == 0 && grid_y == 0 && (x != 0 || y != 0))
 }
 
 // === Type (set by scr_apply_unit_type) ===
-unit_type = "villager";
+unit_type  = "villager";
+unit_class = "land";      // "land", "water" or "air" — terrain they can occupy
 spr_idle  = spr_human_villager_idle;
 spr_walk  = spr_human_villager_walk;
 
@@ -58,6 +59,8 @@ leader_anchor_x = -1;
 leader_anchor_y = -1;
 home_x          = -1;
 home_y          = -1;
+// === Founding beacon state ===
+// (removed: no global beacon)
 
 // === Colonist state (expansion rally) ===
 colonist_leader = false;
@@ -77,8 +80,18 @@ seek_cooldown = 0;
 harvest_target_x = -1;
 harvest_target_y = -1;
 harvest_timer    = 0;
-harvest_required = 120;
+harvest_required = 10;
 harvest_retries  = 0;
+harvest_failed_x = -1;   // last resource we gave up on; skip it next search
+harvest_failed_y = -1;
+mine_dry_scans   = 0;    // >0: target search found nothing, resting until it drops
 
 // === Builder state ===
 build_target_id = noone;
+
+// === Housing ===
+// housed = true means the unit is inside a building: the Step event exits at
+// the top and the sprite is not drawn. The instance stays alive so member_ids
+// and instance_exists() keep reporting it normally.
+housed        = false;
+home_building = noone;

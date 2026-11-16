@@ -73,21 +73,18 @@ function scr_assign_roles(_village_id)
         }
     }
 
-    // Refresh villager pool after minimums
-    var _remaining_villagers = [];
-    for (var _i = _villager_idx; _i < array_length(_available_villagers); _i++)
-    {
-        if (instance_exists(_available_villagers[_i]))
-        {
-            array_push(_remaining_villagers, _available_villagers[_i]);
-        }
-    }
-    _pools.villager = _remaining_villagers;
-
     // ============================================================
     // STEP 2: Ratio Targets
     // ============================================================
-    _pools.soldier = []; _pools.farmer = []; _pools.miner = []; _pools.builder = [];
+    // Rebuild ALL five pools from the current unit roles.
+    // Resetting villager here is required: without it every villager
+    // is already present from Step 1 and gets pushed a second time.
+    _pools.soldier  = [];
+    _pools.farmer   = [];
+    _pools.miner    = [];
+    _pools.builder  = [];
+    _pools.villager = [];
+
     for (var _i = 0; _i < _total; _i++)
     {
         var _u = _v.member_ids[_i];
@@ -187,13 +184,36 @@ function _convert_n_units(_pool, _new_role, _count)
     var _done = 0;
     while (_done < _count && array_length(_pool) > 0)
     {
-        var _idx = irandom(array_length(_pool) - 1);
+        // Prefer a unit that is already outdoors. Waking a sleeping villager
+        // only to put it back to bed next scan makes units flicker in and out
+        // of their houses, so sleepers are the last resort.
+        var _idx  = -1;
+        var _awake = 0;
+
+        for (var _ai = 0; _ai < array_length(_pool); _ai++)
+        {
+            if (!_pool[_ai].housed) _awake++;
+        }
+
+        if (_awake > 0)
+        {
+            var _want = irandom(_awake - 1);
+            for (var _bi = 0; _bi < array_length(_pool); _bi++)
+            {
+                if (_pool[_bi].housed) continue;
+                if (_want == 0) { _idx = _bi; break; }
+                _want--;
+            }
+        }
+
+        if (_idx == -1) _idx = irandom(array_length(_pool) - 1);
+
         var _u = _pool[_idx];
         array_delete(_pool, _idx, 1);
         if (!instance_exists(_u)) continue;
 
         _u.unit_type = _new_role;
-        scr_apply_unit_type(_u, _new_role);
+        scr_apply_unit_type(_u, _new_role);   // this also wakes a housed unit
         _done++;
     }
 }

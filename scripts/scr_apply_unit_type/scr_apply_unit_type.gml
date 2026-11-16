@@ -2,12 +2,17 @@
 /// @desc Sets sprites, speed, behavior, and stats based on unit type.
 function scr_apply_unit_type(_unit, _type)
 {
+    // A unit that is being given a type must be active: this is also the path
+    // role assignment takes when it promotes a villager to a working role, so
+    // an indoors unit steps out here before it is told what to do.
+    scr_unit_wake(_unit);
+
     _unit.unit_type = _type;
 
     // ==========================================
     // 1. BASE DEFAULTS (Every unit starts as a land villager)
     // ==========================================
-    _unit.unit_class            = "land";      // "land", "water", "air"
+    _unit.unit_class            = scr_unit_class_for_type(_type);  // "land", "water", "air"
     _unit.can_leave_territory   = false;       // Can they cross the purple border?
     _unit.can_walk_on_resources = false;       // Can they step on trees/rocks?
     _unit.can_walk_on_water     = false;       // Can they swim?
@@ -105,16 +110,36 @@ function scr_apply_unit_type(_unit, _type)
         // FUTURE UNITS GO HERE
         // ==========================================
         case "ship":
-            _unit.spr_idle = spr_ship_idle;
-            _unit.spr_walk = spr_ship_walk;
-            _unit.move_speed = 2.5;
-            _unit.unit_class = "water"; // Can only move on water
+        {
+            // Water unit: spawns and sails on ocean tiles only — the opposite
+            // of a land unit. Era 3+ reuse the era-2 art.
+            var _era = 1;
+            if (_unit.kingdom_id >= 0
+             && variable_global_exists("kingdoms")
+             && _unit.kingdom_id < array_length(global.kingdoms))
+            {
+                _era = global.kingdoms[_unit.kingdom_id].advancement_level;
+            }
+
+            var _ship_spr = (_era >= 2) ? spr_ship_era2 : spr_ship_era1;
+            _unit.spr_idle = _ship_spr;
+            _unit.spr_walk = _ship_spr;
+
+            _unit.move_speed       = 2.5;
+            _unit.wander_radius    = 12;
+            _unit.wander_pause_min = 20;
+            _unit.wander_pause_max = 45;
+
+            _unit.unit_class          = "water"; // Water tiles only
             _unit.can_leave_territory = true;
+            _unit.can_walk_on_water   = true;
+
             _unit.hp = 200;
             _unit.max_hp = 200;
             _unit.damage = 25;
             _unit.attack_range = 4;
             break;
+        }
 
         case "plane":
             _unit.spr_idle = spr_plane_idle;
@@ -148,6 +173,7 @@ function scr_apply_unit_type(_unit, _type)
     _unit.harvest_target_x = -1;
     _unit.harvest_target_y = -1;
     _unit.harvest_timer    = 0;
+    _unit.mine_dry_scans   = 0;
 
     _unit.build_target_id  = noone;
     
@@ -155,4 +181,20 @@ function scr_apply_unit_type(_unit, _type)
     _unit.walk_path = [];
     _unit.walk_index = 0;
     _unit.path_allow_res = false;
+}
+
+/// @func scr_unit_class_for_type(_type)
+/// @desc Terrain class owned by a unit type, known before the instance exists.
+///       This is what lets spawners check the tile before creating the unit.
+///         "land"  — walks on land, water is impassable
+///         "water" — sails on water, land is impassable (ships)
+///         "air"   — ignores terrain (planes)
+function scr_unit_class_for_type(_type)
+{
+    switch (_type)
+    {
+        case "ship":  return "water";
+        case "plane": return "air";
+    }
+    return "land";
 }

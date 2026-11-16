@@ -1,13 +1,16 @@
+// DEPRECATED — kept only so nothing breaks if an older call site survives.
+// All cap values now live in scr_era_rules.gml.
+
 /// @func scr_max_houses_for_level(_level)
-/// @desc Max houses allowed per village at the given kingdom advancement level.
+/// @desc Alias for scr_era_max_houses.
 function scr_max_houses_for_level(_level)
 {
-    switch (_level)
-    {
-        case 1: return 5;
-        case 2: return 10;
-        case 3: return 20;
-        case 4: return 30;
-    }
-    return 5;
+    return scr_era_max_houses(_level);
+}
+
+/// @func scr_max_watchtowers_for_level(_level)
+/// @desc Alias for scr_era_max_watchtowers.
+function scr_max_watchtowers_for_level(_level)
+{
+    return scr_era_max_watchtowers(_level);
 }

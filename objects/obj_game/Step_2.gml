@@ -13,3 +13,8 @@ camera_y = clamp(camera_y, 0, max(0, _world_px_h - _view_h));
 // === Apply to viewport ===
 camera_set_view_pos (view_camera[0], camera_x, camera_y);
 camera_set_view_size(view_camera[0], _view_w,  _view_h);
+
+// === Refill the per-frame pathfinding allowance ===
+// End Step runs after every unit has had its Step, so this is the safe place
+// to reset it no matter what order the instances were created in.
+scr_pf_reset_budget();

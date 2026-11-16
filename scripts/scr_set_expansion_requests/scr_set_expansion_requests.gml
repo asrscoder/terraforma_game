@@ -11,7 +11,13 @@ function scr_set_expansion_requests()
 
         // 2. Check max child village count
         var _kingdom = global.kingdoms[_v.kingdom_id];
-        var _max_children = scr_max_child_villages_for_level(_kingdom.advancement_level);
+
+        // One rally at a time per kingdom. Without this, the capital could
+        // queue another expansion request while a rally is still running,
+        // allowing an extra child to be founded past the cap.
+        if (_kingdom.expansion_rally_active) continue;
+
+        var _max_children = scr_era_max_child_villages(_kingdom.advancement_level);
         var _current_children = array_length(_kingdom.village_ids) - 1;
         
         if (_current_children >= _max_children) 
@@ -33,16 +39,16 @@ function scr_set_expansion_requests()
         }
         if (!_has_town_hall) 
         {
-            show_debug_message("Expansion fail for " + string(_v.id) + ": Town hall not complete.");
+            scr_debug_log("Expansion fail for " + string(_v.id) + ": Town hall not complete.");
             continue;
         }
 
         // 4. Must have max houses for the current level
-        var _max_houses = scr_max_houses_for_level(_kingdom.advancement_level);
+        var _max_houses = scr_era_max_houses(_kingdom.advancement_level);
         var _current_houses = scr_village_house_count(_v);
         if (_current_houses < _max_houses) 
         {
-            show_debug_message("Expansion fail for " + string(_v.id) + ": Houses " + string(_current_houses) + "/" + string(_max_houses));
+            scr_debug_log("Expansion fail for " + string(_v.id) + ": Houses " + string(_current_houses) + "/" + string(_max_houses));
             continue;
         }
 
@@ -58,7 +64,7 @@ function scr_set_expansion_requests()
         }
         if (_villagers < 10) 
         {
-            show_debug_message("Expansion fail for " + string(_v.id) + ": Only " + string(_villagers) + "/10 villagers.");
+            scr_debug_log("Expansion fail for " + string(_v.id) + ": Only " + string(_villagers) + "/10 villagers.");
             continue;
         }
 

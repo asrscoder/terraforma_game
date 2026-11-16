@@ -13,208 +13,227 @@ function scr_try_form_villages()
     // Tunables
     // ================================================================
     var _cluster_radius      = 15;
-    var _assimilation_radius = 30;
+    var _beacon_radius       = 30;   // wider radius so spread-out groups still get an anchor
+    var _assimilation_radius = 5;
     var _founding_min        = 5;
     var _village_radius      = 5;
     var _migration_batch     = 10;
 
     // ================================================================
-    // PASS 1: Unaffiliated villagers — lead-based founding & convergence
+    // PASS 1: Unaffiliated villagers — local cluster founding
     // ================================================================
-    var _lead = noone;
+    // Every unaffiliated villager is a candidate. A candidate founds a
+    // village when at least _founding_min unaffiliated villagers (itself
+    // included) are within _cluster_radius AND can reach it. This means
+    // separate groups can found their own villages, and a lone straggler
+    // somewhere else can no longer block a local group.
+    //
+    // After founding, the largest remaining group gets a beacon: its
+    // candidate stands still and the rest path to it, so scattered
+    // villagers still converge.
+    // ================================================================
 
-	for (var _li = 0; _li < _count; _li++)
-	{
-	    var _lu = _units[_li];
-	    if (_lu.unit_type != "villager") continue;
-	    if (_lu.village_id != -1)        continue;
-
-        // Skip colonists actively marching to a rally point
-        if (_lu.kingdom_id != -1) // <--- ADD THIS CHECK
-        {
-            var _lu_k = global.kingdoms[_lu.kingdom_id];
-            if (_lu_k.expansion_rally_active) continue;
-        }
-
-	    // Skip units that are clearly broken / not yet placed.
-	    if (!instance_exists(_lu))             continue;
-	    if (_lu.x <= 0 && _lu.y <= 0)          continue;   // at world origin
-	    if (_lu.grid_x <= 0 && _lu.grid_y <= 0) continue;  // at grid origin
-	    if (_lu.walk_path == undefined)        continue;
-
-	    if (_lead == noone || _lu.id < _lead.id)
-	    {
-	        _lead = _lu;
-	    }
-	}
-
-
-    if (_lead != noone)
+    // Collect unaffiliated villagers.
+    var _unaffiliated = [];
+    for (var _ui = 0; _ui < _count; _ui++)
     {
-        // Publish the beacon to obj_unit. Names MUST match the reader in Step.
-        global.village_founder_id = _lead.id;
-        global.village_founder_x  = _lead.grid_x;
-        global.village_founder_y  = _lead.grid_y;
-
-        // Refresh each call so followers always target the current tile.
-        // (Leader is frozen in Step, but this is cheap insurance.)
-        _lead.walk_path  = [];
-        _lead.walk_index = 0;
-
-        var _near = [];
-
-        for (var _ni = 0; _ni < _count; _ni++)
+        var _uu = _units[_ui];
+        if (!instance_exists(_uu)) continue;
+        if (_uu.unit_type != "villager") continue;
+        if (_uu.village_id != -1) continue;
+        if (_uu.kingdom_id != -1)
         {
-            var _nu = _units[_ni];
-            if (_nu.unit_type != "villager") continue;
-            if (_nu.village_id != -1)        continue;
-			
-            // Skip colonists actively marching to a rally point
-            if (_nu.kingdom_id != -1) // <--- ADD THIS CHECK
-            {
-                var _nu_k = global.kingdoms[_nu.kingdom_id];
-                if (_nu_k.expansion_rally_active) continue;
-            }
+            var _uk = global.kingdoms[_uu.kingdom_id];
+            if (_uk.expansion_rally_active) continue;
+        }
+        array_push(_unaffiliated, _uu);
+    }
 
-            var _d = point_distance(_lead.grid_x, _lead.grid_y, _nu.grid_x, _nu.grid_y);
+    // Stable order: oldest (lowest id) first.
+    for (var _si = 1; _si < array_length(_unaffiliated); _si++)
+    {
+        var _key = _unaffiliated[_si];
+        var _sj  = _si - 1;
+        while (_sj >= 0)
+        {
+            if (_unaffiliated[_sj].id <= _key.id) break;
+            _unaffiliated[_sj + 1] = _unaffiliated[_sj];
+            _sj--;
+        }
+        _unaffiliated[_sj + 1] = _key;
+    }
 
-            if (_d <= _cluster_radius)
-            {
-                array_push(_near, _nu);
-            }
+    // ---- Founding pass ----
+    for (var _ci = 0; _ci < array_length(_unaffiliated); _ci++)
+    {
+        var _cand = _unaffiliated[_ci];
+        if (!instance_exists(_cand)) continue;
+        if (_cand.village_id != -1) continue; // founded/assimilated earlier this scan
 
-            // Force convergence: if a follower is far, shove a path onto it so
-            // they don't waste cycles choosing a random wander target first.
-            // The Step code will also target the beacon once its current path empties.
-            if (_nu.id != _lead.id && array_length(_nu.walk_path) == 0 && _d > _cluster_radius * 0.5)
+        // Cheap distance check first: can this candidate possibly have
+        // enough neighbours? Avoids running A* for every single villager.
+        var _nearby = 1; // the candidate itself
+        for (var _qi = 0; _qi < array_length(_unaffiliated); _qi++)
+        {
+            var _qu = _unaffiliated[_qi];
+            if (!instance_exists(_qu) || _qu == _cand) continue;
+            if (_qu.village_id != -1) continue;
+            if (point_distance(_cand.grid_x, _cand.grid_y, _qu.grid_x, _qu.grid_y) <= _cluster_radius) _nearby++;
+        }
+
+        if (_nearby < _founding_min) continue;
+
+        // Full cluster: only villagers that can actually reach the candidate.
+        // Same tile counts as reachable: scr_find_path returns [] when
+        // start == goal, and converged villagers do end up on one tile.
+        var _cluster = [_cand];
+
+        for (var _ni = 0; _ni < array_length(_unaffiliated); _ni++)
+        {
+            var _nu = _unaffiliated[_ni];
+            if (!instance_exists(_nu) || _nu == _cand) continue;
+            if (_nu.village_id != -1) continue;
+            if (point_distance(_cand.grid_x, _cand.grid_y, _nu.grid_x, _nu.grid_y) > _cluster_radius) continue;
+
+            if ((_nu.grid_x == _cand.grid_x && _nu.grid_y == _cand.grid_y)
+             || array_length(scr_find_path(_nu.grid_x, _nu.grid_y, _cand.grid_x, _cand.grid_y, true)) > 0)
             {
-                var _path = scr_find_path(_nu.grid_x, _nu.grid_y, _lead.grid_x, _lead.grid_y, true);
-				
-				if (array_length(_path) > 0)
-                {
-                    _nu.walk_path          = _path;
-                    _nu.walk_index         = 0;
-                    _nu.wander_pause_timer = 0;
-                    _nu.path_cooldown      = 0;
-                }
+                array_push(_cluster, _nu);
             }
         }
 
+        if (array_length(_cluster) < _founding_min) continue;
 
-        // Found when we have enough clustered.
-        if (array_length(_near) >= _founding_min)
+        // Nearest existing village (Chebyshev distance to its territory).
+        var _too_close       = false;
+        var _closest_village = -1;
+        var _closest_dist    = 99999;
+
+        for (var _vi = 0; _vi < array_length(global.villages); _vi++)
         {
-            var _too_close = false;
-            var _closest_village = -1;
-            var _closest_dist    = 99999;
-
-            for (var _vi = 0; _vi < array_length(global.villages); _vi++)
-            {
-                var _v  = global.villages[_vi];
-                var _dx = 0;
-                var _dy = 0;
-
-                if (_lead.grid_x < _v.left)       _dx = _v.left - _lead.grid_x;
-                else if (_lead.grid_x > _v.right) _dx = _lead.grid_x - _v.right;
-
-                if (_lead.grid_y < _v.top)         _dy = _v.top - _lead.grid_y;
-                else if (_lead.grid_y > _v.bottom) _dy = _lead.grid_y - _v.bottom;
-
-                var _cheb = max(_dx, _dy);
-
-                if (_cheb < _closest_dist)
-                {
-                    _closest_dist    = _cheb;
-                    _closest_village = _vi;
-                }
-
-                if (_cheb < _assimilation_radius)
-                {
-                    _too_close = true;
-                }
-            }
-
-            if (!_too_close)
-            {
-                var _spot = scr_find_town_hall_spot(_lead.grid_x, _lead.grid_y);
-
-                if (_spot[0] != -1)
-                {
-                    var _new_id = scr_create_village(
-                        _lead.grid_x, _lead.grid_y, _village_radius, "villager", -1, true
-                    );
-                    var _new_v = global.villages[_new_id];
-
-                    // Lead becomes leader.
-                    _lead.unit_type  = "leader";
-                    _lead.village_id = _new_id;
-                    _lead.kingdom_id = _new_v.kingdom_id;
-                    _lead.is_leader  = true;
-                    _lead.home_x     = _lead.grid_x;
-                    _lead.home_y     = _lead.grid_y;
-                    _lead.walk_path  = [];
-                    _lead.walk_index = 0;
-
-                    array_push(_new_v.member_ids, _lead.id);
-                    global.villages[_new_id] = _new_v;
-
-                    scr_apply_unit_type(_lead, "leader");
-
-                    // Absorb nearby unaffiliated villagers.
-                    for (var _ai = 0; _ai < array_length(_near); _ai++)
-                    {
-                        var _au = _near[_ai];
-                        if (!instance_exists(_au) || _au.id == _lead.id) continue;
-
-                        _au.village_id = _new_id;
-                        _au.kingdom_id = _new_v.kingdom_id;
-                        array_push(global.villages[_new_id].member_ids, _au.id);
-                    }
-
-                    // Clear beacon — a village exists now.
-                    global.village_founder_id = noone;
-                    global.village_founder_x  = -1;
-                    global.village_founder_y  = -1;
-                }
-                else
-                {
-                    show_debug_message("Founding blocked: no valid town hall spot near lead.");
-                }
-            }
-            else if (_closest_village != -1)
-            {
-                // Too close to an existing village — assimilate the cluster
-                // into the nearest one instead of leaving them stranded forever.
-                var _target_v = global.villages[_closest_village];
-
-                for (var _ai2 = 0; _ai2 < array_length(_near); _ai2++)
-                {
-                    var _au2 = _near[_ai2];
-                    if (!instance_exists(_au2)) continue;
-
-                    _au2.village_id = _closest_village;
-                    _au2.kingdom_id = _target_v.kingdom_id;
-
-                    var _already_member = false;
-                    for (var _mi = 0; _mi < array_length(_target_v.member_ids); _mi++)
-                    {
-                        if (_target_v.member_ids[_mi] == _au2.id) { _already_member = true; break; }
-                    }
-                    if (!_already_member)
-                    {
-                        array_push(_target_v.member_ids, _au2.id);
-                    }
-                }
-
-                global.villages[_closest_village] = _target_v;
-
-                global.village_founder_id = noone;
-                global.village_founder_x  = -1;
-                global.village_founder_y  = -1;
-
-                show_debug_message("Cluster near village " + string(_closest_village) + " — assimilated " + string(array_length(_near)));
-            }
+            var _v = global.villages[_vi];
+            var _dx = 0; var _dy = 0;
+            if (_cand.grid_x < _v.left) _dx = _v.left - _cand.grid_x;
+            else if (_cand.grid_x > _v.right) _dx = _cand.grid_x - _v.right;
+            if (_cand.grid_y < _v.top) _dy = _v.top - _cand.grid_y;
+            else if (_cand.grid_y > _v.bottom) _dy = _cand.grid_y - _v.bottom;
+            var _cheb = max(_dx, _dy);
+            if (_cheb < _closest_dist) { _closest_dist = _cheb; _closest_village = _vi; }
+            if (_cheb < _assimilation_radius) _too_close = true;
         }
+
+        if (_too_close && _closest_village != -1)
+        {
+            // The whole group joins the nearby village (candidate included).
+            var _target_v = global.villages[_closest_village];
+
+            for (var _ai = 0; _ai < array_length(_cluster); _ai++)
+            {
+                var _au = _cluster[_ai];
+                if (!instance_exists(_au)) continue;
+
+                _au.village_id = _closest_village;
+                _au.kingdom_id = _target_v.kingdom_id;
+                _au.x          = _target_v.cx * obj_world.tile_size;
+                _au.y          = _target_v.cy * obj_world.tile_size;
+                _au.grid_x     = _target_v.cx;
+                _au.grid_y     = _target_v.cy;
+                _au.walk_path  = [];
+                _au.walk_index = 0;
+                _au.path_allow_res = false;
+                _au.wander_pause_timer = 0;
+                _au.path_cooldown = 0;
+
+                var _already = false;
+                for (var _mi = 0; _mi < array_length(_target_v.member_ids); _mi++)
+                {
+                    if (_target_v.member_ids[_mi] == _au.id) { _already = true; break; }
+                }
+                if (!_already) array_push(_target_v.member_ids, _au.id);
+            }
+
+            global.villages[_closest_village] = _target_v;
+        }
+        else
+        {
+            // Found a new village at the candidate's tile. Town hall
+            // placement is handled by scr_create_village/scr_place_construction.
+            var _new_id = scr_create_village(_cand.grid_x, _cand.grid_y, _village_radius, "villager", -1, true);
+            var _new_v  = global.villages[_new_id];
+
+            // Candidate becomes the leader.
+            _cand.unit_type  = "leader";
+            _cand.village_id = _new_id;
+            _cand.kingdom_id = _new_v.kingdom_id;
+            _cand.is_leader  = true;
+            _cand.home_x     = _cand.grid_x;
+            _cand.home_y     = _cand.grid_y;
+            array_push(_new_v.member_ids, _cand.id);
+            scr_apply_unit_type(_cand, "leader");
+
+            // Everyone else in the cluster joins the new village.
+            for (var _ai = 0; _ai < array_length(_cluster); _ai++)
+            {
+                var _au = _cluster[_ai];
+                if (!instance_exists(_au) || _au == _cand) continue;
+
+                _au.village_id = _new_id;
+                _au.kingdom_id = _new_v.kingdom_id;
+                _au.x          = _new_v.cx * obj_world.tile_size;
+                _au.y          = _new_v.cy * obj_world.tile_size;
+                _au.grid_x     = _new_v.cx;
+                _au.grid_y     = _new_v.cy;
+                _au.walk_path  = [];
+                _au.walk_index = 0;
+                _au.path_allow_res = false;
+                _au.wander_pause_timer = 0;
+                _au.path_cooldown = 0;
+
+                array_push(_new_v.member_ids, _au.id);
+                scr_apply_unit_type(_au, "villager");
+            }
+
+            global.villages[_new_id] = _new_v;
+        }
+    }
+
+    // ---- Beacon pass ----
+    // Largest remaining unaffiliated group becomes the convergence target.
+    // A group of one gets no beacon, so stragglers just wander.
+    var _beacon      = noone;
+    var _beacon_size = 0;
+
+    for (var _bi = 0; _bi < array_length(_unaffiliated); _bi++)
+    {
+        var _bu = _unaffiliated[_bi];
+        if (!instance_exists(_bu)) continue;
+        if (_bu.village_id != -1) continue;
+
+        var _group = 1;
+        for (var _bj = 0; _bj < array_length(_unaffiliated); _bj++)
+        {
+            var _other = _unaffiliated[_bj];
+            if (!instance_exists(_other) || _other == _bu) continue;
+            if (_other.village_id != -1) continue;
+            if (point_distance(_bu.grid_x, _bu.grid_y, _other.grid_x, _other.grid_y) <= _beacon_radius) _group++;
+        }
+
+        if (_group > _beacon_size)
+        {
+            _beacon_size = _group;
+            _beacon      = _bu;
+        }
+    }
+
+    if (_beacon != noone && _beacon_size >= 2)
+    {
+        global.village_founder_id = _beacon.id;
+        global.village_founder_x  = _beacon.grid_x;
+        global.village_founder_y  = _beacon.grid_y;
+
+        // The beacon unit stands still so the rest can catch up.
+        _beacon.walk_path  = [];
+        _beacon.walk_index = 0;
     }
     else
     {
@@ -227,6 +246,12 @@ function scr_try_form_villages()
     // PASS 2: Found children from rally (Delegated to helper function)
     // ================================================================
     scr_try_found_from_rally();
+
+    // ================================================================
+    // PASS 2b: Kingdom advancement (run before expansion requests so the
+    // new level's caps apply on the same scan)
+    // ================================================================
+    scr_check_kingdom_level_up();
 
     // ================================================================
     // PASS 3: Migration
@@ -244,11 +269,11 @@ function scr_try_form_villages()
         var _best_sibling_id = -1;
         var _best_dist       = 99999;
 
-        for (var _sj = 0; _sj < array_length(global.villages); _sj++)
+        for (var _sj2 = 0; _sj2 < array_length(global.villages); _sj2++)
         {
-            if (_sj == _mvi) continue;
+            if (_sj2 == _mvi) continue;
 
-            var _sib = global.villages[_sj];
+            var _sib = global.villages[_sj2];
             if (_sib.kingdom_id != _src.kingdom_id) continue;
             if (array_length(_sib.member_ids) >= scr_village_housing_cap(_sib)) continue;
 
@@ -256,7 +281,7 @@ function scr_try_form_villages()
             if (_d < _best_dist)
             {
                 _best_dist       = _d;
-                _best_sibling_id = _sj;
+                _best_sibling_id = _sj2;
             }
         }
 
@@ -266,9 +291,9 @@ function scr_try_form_villages()
         var _migrated  = 0;
         var _remaining = [];
 
-        for (var _ui = 0; _ui < array_length(_src.member_ids); _ui++)
+        for (var _ui2 = 0; _ui2 < array_length(_src.member_ids); _ui2++)
         {
-            var _unit_id = _src.member_ids[_ui];
+            var _unit_id = _src.member_ids[_ui2];
 
             if (_migrated >= _migration_batch)
             {
@@ -284,13 +309,16 @@ function scr_try_form_villages()
                 continue;
             }
 
+            // Migrating to another village: leave the current bed first, so the
+            // bed is freed and the unit is visible to walk to its new home.
+            scr_unit_wake(_unit);
+
             _unit.village_id = _best_sibling_id;
             _unit.kingdom_id = _dest.kingdom_id;
             array_push(_dest.member_ids, _unit.id);
-
             var _path = scr_find_path(_unit.grid_x, _unit.grid_y, _dest.cx, _dest.cy, true);
-            
-			if (array_length(_path) > 0)
+
+            if (array_length(_path) > 0)
             {
                 _unit.walk_path          = _path;
                 _unit.walk_index         = 0;
@@ -336,8 +364,14 @@ function scr_try_form_villages()
     }
 
     // ================================================================
-    // PASS 8 & 9: House placement & Building completion
+    // PASS 8 & 9: Building upgrades, placement & completion
     // ================================================================
-    scr_try_place_houses();
+    // Ports get first claim on the single construction slot. Otherwise an
+    // era-2 village with level-1 houses still queued keeps starting an
+    // upgrade every time a site finishes, so the placement pass never gets
+    // a free slot and the first port is never built.
+    scr_try_place_port();
+    scr_try_upgrade_buildings();
+    scr_try_place_buildings();
     scr_try_complete_buildings();
 }

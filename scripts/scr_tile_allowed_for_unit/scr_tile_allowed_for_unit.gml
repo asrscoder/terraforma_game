@@ -6,11 +6,14 @@
 ///       Rules:
 ///         - Physical terrain (water, blocked, resource-by-type) via
 ///           scr_tile_is_roamable.
+///         - Resource movement permission comes from the unit's
+///           can_walk_on_resources flag (miners, colonists, etc.).
 ///         - Never enter a foreign kingdom's territory. (Alliances TBD.)
-///         - Miners may leave their own village, but are still blocked by
-///           foreign kingdoms.
-///         - Non-miners must stay inside their own village bounds.
-///         - Unaffiliated villagers (village_id == -1) have no village bounds,
+///         - Units with can_leave_territory may leave their own village
+///           (soldiers, miners, ships, planes, colonists).
+///         - Units without that flag must stay inside their village's
+///           actual claimed tiles.
+///         - Unaffiliated units (village_id == -1) have no village bounds,
 ///           so they are only subject to the foreign-kingdom rule.
 ///
 /// @param {id}     unit                The unit instance
@@ -22,7 +25,8 @@
 /// @returns {bool}                     true if the unit may occupy (gx, gy)
 function scr_tile_allowed_for_unit(_unit, _gx, _gy, _allow_res_override = false)
 {
-    var _allow_res = (_unit.unit_type == "miner") || _allow_res_override;
+    // Honour the per-unit capability flag instead of hard-coding "miner".
+    var _allow_res = _unit.can_walk_on_resources || _allow_res_override;
 
     if (!scr_tile_is_roamable(_unit, _gx, _gy, _allow_res)) return false;
 
@@ -31,13 +35,14 @@ function scr_tile_allowed_for_unit(_unit, _gx, _gy, _allow_res_override = false)
     // Foreign kingdom — blocked. (TODO: if scr_is_ally(...) return true;)
     if (_owner_kingdom != -1 && _owner_kingdom != _unit.kingdom_id) return false;
 
-    // Miners: free to roam wilderness + own kingdom.
-    if (_unit.unit_type == "miner") return true;
+    // Units allowed to leave the village (soldiers, miners, ships, planes,
+    // colonists) may roam wilderness and their own kingdom.
+    if (_unit.can_leave_territory) return true;
 
-    // Unaffiliated villagers: no village bounds to enforce.
+    // Unaffiliated units have no village bounds to enforce.
     if (_unit.village_id == -1) return true;
 
-    // Non-miners: must stay inside their village's actual claimed tiles.
+    // Everyone else must stay on their village's claimed tiles.
     var _idx = _gx + _gy * obj_world.world_width;
     if (obj_world.territory_grid[_idx] != _unit.village_id) return false;
 

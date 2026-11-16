@@ -6,6 +6,7 @@ function scr_try_expand_village()
     // ===== Tunables =====
     var _max_per_call = 8;   // expansion attempts per village per call
     var _chunk        = 2;   // patch radius: 0 = 1 tile, 1 = 3x3, 2 = 5x5, 3 = 7x7
+    var _ocean_depth  = 10;  // max tiles out to sea a village may claim from shore
     var _tiles_per_pop = 2;  // village wants to own pop * this many tiles
     var _min_pop      = 50;  // no expansion below this population
 
@@ -26,10 +27,20 @@ function scr_try_expand_village()
         var _r = min(_w - 1, _v.right);
         var _b = min(_h - 1, _v.bottom);
 
+        // Count owned LAND only. Ocean claims must not eat the land budget,
+        // otherwise a coastal village would stop growing inland as soon as
+        // its shallow water band is claimed.
         var _owned = 0;
         for (var _gy = _t; _gy <= _b; _gy++)
+        {
             for (var _gx = _l; _gx <= _r; _gx++)
-                if (obj_world.territory_grid[_gx + _gy * _w] == _v.id) _owned++;
+            {
+                var _oidx = _gx + _gy * _w;
+                if (obj_world.territory_grid[_oidx] != _v.id)        continue;
+                if (obj_world.terrain_grid[_oidx] == TERRAIN.WATER)  continue;
+                _owned++;
+            }
+        }
 
         if (_owned >= _target_tiles) continue;
 
@@ -54,8 +65,8 @@ function scr_try_expand_village()
         if (array_length(_edges) == 0) continue;
 
         var _max_r   = scr_advancement_max_radius(global.kingdoms[_v.kingdom_id].advancement_level);
-        var _dxs     = [0, 1, 0, -1];
-        var _dys     = [-1, 0, 1, 0];
+        static _dxs  = [0, 1, 0, -1];
+        static _dys  = [-1, 0, 1, 0];
         var _changed = false;
 
         repeat (_max_per_call)
@@ -74,7 +85,13 @@ function scr_try_expand_village()
                 var _nidx = _nx + _ny * _w;
 
                 if (obj_world.territory_grid[_nidx] != -1)           continue;
-                if (obj_world.terrain_grid[_nidx] == TERRAIN.WATER)  continue;
+                // Ocean expansion: water must be connected to this village's
+                // shore and no more than _ocean_depth tiles out to sea.
+                if (obj_world.terrain_grid[_nidx] == TERRAIN.WATER)
+                {
+                    var _depth = scr_ocean_depth_at(_v, _nx, _ny);
+                    if (_depth < 1 || _depth > _ocean_depth) continue;
+                }
                 if (point_distance(_v.cx, _v.cy, _nx, _ny) > _max_r) continue;
 
                 // Claim a square patch centred on the new tile
@@ -86,10 +103,19 @@ function scr_try_expand_village()
 
                         var _pidx = _px + _py * _w;
                         if (obj_world.territory_grid[_pidx] != -1)           continue;
-                        if (obj_world.terrain_grid[_pidx] == TERRAIN.WATER)  continue;
+
+                        // Water: connected to shore, at most _ocean_depth deep.
+                        var _pdepth = 0;
+                        if (obj_world.terrain_grid[_pidx] == TERRAIN.WATER)
+                        {
+                            _pdepth = scr_ocean_depth_at(_v, _px, _py);
+                            if (_pdepth < 1 || _pdepth > _ocean_depth) continue;
+                        }
+
                         if (point_distance(_v.cx, _v.cy, _px, _py) > _max_r) continue;
 
                         obj_world.territory_grid[_pidx] = _v.id;
+                        if (_pdepth > 0) obj_world.water_depth_grid[_pidx] = _pdepth;
                         scr_mark_coastal_water(_px, _py);   // 1-tile water border (port-only)
                         array_push(_edges, [_px, _py]);
 
@@ -105,6 +131,10 @@ function scr_try_expand_village()
             }
         }
 
-        if (_changed) global.villages[_vi] = _v;
+        if (_changed)
+        {
+            _v.territory_dirty = true;
+            global.villages[_vi] = _v;
+        }
     }
 }

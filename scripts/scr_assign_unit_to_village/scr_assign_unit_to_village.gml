@@ -2,6 +2,10 @@
 /// @desc Assigns a unit to a village. Appends to member_ids if not already present.
 function scr_assign_unit_to_village(_unit, _village_id)
 {
+    // Moving village (rally timeout, reassignment) must take the unit out of
+    // whatever bed it was in, or it would stay invisible in the old village.
+    scr_unit_wake(_unit);
+
     var _v = global.villages[_village_id];
 
     // Set position/kingdom regardless

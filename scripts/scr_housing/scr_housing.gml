@@ -30,6 +30,7 @@ function scr_housing_beds_for(_building_type, _level)
             case "house_a":   return 20;
             case "house_b":   return 30;
             case "barracks":  return 30;
+            case "farm":      return 20;
         }
     }
     else
@@ -40,6 +41,7 @@ function scr_housing_beds_for(_building_type, _level)
             case "house_a":   return 10;
             case "house_b":   return 20;
             case "barracks":  return 30;
+            case "farm":      return 20;
         }
     }
 
@@ -69,6 +71,7 @@ function scr_housing_type_allowed(_type)
 function scr_housing_bed_allowed(_building_type, _unit_type)
 {
     if (_building_type == "barracks") return (_unit_type == "soldier");
+    if (_building_type == "farm")     return (_unit_type == "farmer");
     return (_unit_type == "villager" || _unit_type == "leader");
 }
 

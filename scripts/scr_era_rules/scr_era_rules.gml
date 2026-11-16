@@ -25,12 +25,12 @@ function scr_era_max_houses(_level)
 {
     switch (_level)
     {
-        case 1: return 10;
-        case 2: return 15;
-        case 3: return 25;
-        case 4: return 40;
+        case 1: return 15;
+        case 2: return 25;
+        case 3: return 40;
+        case 4: return 50;
     }
-    return 5;
+    return 15;
 }
 
 /// @func scr_era_max_watchtowers(_level)
@@ -39,12 +39,12 @@ function scr_era_max_watchtowers(_level)
 {
     switch (_level)
     {
-        case 1: return 3;
-        case 2: return 5;
-        case 3: return 8;
-        case 4: return 12;
+        case 1: return 5;
+        case 2: return 8;
+        case 3: return 12;
+        case 4: return 20;
     }
-    return 2;
+    return 5;
 }
 
 /// @func scr_era_max_ports(_level)
@@ -68,9 +68,9 @@ function scr_era_max_mines(_level)
     switch (_level)
     {
         case 1: return 0;
-        case 2: return 1;
-        case 3: return 2;
-        case 4: return 3;
+        case 2: return 3;
+        case 3: return 6;
+        case 4: return 10;
     }
     return 0;
 }
@@ -242,6 +242,33 @@ function scr_era_required_barracks(_level)
     return 999999;
 }
 /// @desc Child villages the kingdom needs before advancing from this era.
+/// @func scr_era_max_farms(_level)
+/// @desc How many farms a village may own at this era.
+function scr_era_max_farms(_level)
+{
+    switch (_level)
+    {
+        case 1: return 3;
+        case 2: return 5;
+        case 3: return 5;
+        case 4: return 5;
+    }
+    return 3;
+}
+
+/// @func scr_era_required_farms(_level)
+/// @desc Completed farms the capital needs before advancing from this era.
+function scr_era_required_farms(_level)
+{
+    switch (_level)
+    {
+        case 1: return 1;
+        case 2: return 1;
+        case 3: return 1;
+    }
+    return 999999;
+}
+
 function scr_era_required_child_villages(_level)
 {
     switch (_level)

@@ -613,6 +613,90 @@ function scr_try_place_barracks(_only_village = -1, _required_only = false)
     return _placed;
 }
 
+/// @func scr_try_place_farm(_only_village, _required_only)
+/// @desc Places a 2x2 farm site. Mirrors scr_try_place_workshop.
+function scr_try_place_farm(_only_village = -1, _required_only = false)
+{
+    var _placed = false;
+
+    for (var _i = 0; _i < array_length(global.villages); _i++)
+    {
+        if (_only_village != -1 && _i != _only_village) continue;
+
+        var _v       = global.villages[_i];
+        var _kingdom = global.kingdoms[_v.kingdom_id];
+
+        if (scr_village_farm_count(_v) >= scr_era_max_farms(_kingdom.advancement_level)) continue;
+
+        if (_required_only)
+        {
+            if (scr_village_farm_count(_v) >= scr_era_required_farms(_kingdom.advancement_level)) continue;
+        }
+
+        var _town_hall = noone;
+        for (var _bi = 0; _bi < array_length(_v.building_list); _bi++)
+        {
+            var _b = _v.building_list[_bi];
+            if (!instance_exists(_b)) continue;
+            if (_b.building_type != "town_hall") continue;
+            if (_b.state != "complete") continue;
+            _town_hall = _b;
+            break;
+        }
+        if (_town_hall == noone) continue;
+        if (_town_hall.level < _kingdom.advancement_level) continue;
+
+        var _pending_construction = false;
+        with (obj_building)
+        {
+            if (village_id != _v.id) continue;
+            if (state != "construction") continue;
+            _pending_construction = true;
+        }
+        if (_pending_construction) continue;
+
+        var _spot = scr_find_farm_spot(_i);
+        if (_spot[0] == -1) continue;
+
+        var _ts = obj_world.tile_size;
+        var _w  = obj_world.world_width;
+        var _inst = instance_create_depth(
+            (_spot[0] + 1) * _ts,
+            (_spot[1] + 2) * _ts,
+            DEPTH.BUILDINGS,
+            obj_building
+        );
+
+        _inst.building_type = "farm";
+        _inst.building_size = 16;
+        _inst.sprite_index  = scr_construction_sprite(_inst.building_type);
+        _inst.state         = "construction";
+        _inst.village_id    = _v.id;
+        _inst.level         = _kingdom.advancement_level;
+
+        _inst.footprint_left   = _spot[0];
+        _inst.footprint_top    = _spot[1];
+        _inst.footprint_right  = _spot[0] + 1;
+        _inst.footprint_bottom = _spot[1] + 1;
+
+        for (var _dy = 0; _dy <= 1; _dy++)
+        {
+            for (var _dx = 0; _dx <= 1; _dx++)
+            {
+                obj_world.block_grid[(_spot[0] + _dx) + (_spot[1] + _dy) * _w] = 1;
+            }
+        }
+
+        scr_bpad_add(_inst);
+
+        _placed = true;
+        _v.construction_id = _inst;
+        global.villages[_i] = _v;
+    }
+
+    return _placed;
+}
+
 function scr_try_place_buildings()
 {
     for (var _i = 0; _i < array_length(global.villages); _i++)
@@ -629,13 +713,17 @@ function scr_try_place_buildings()
         // The barracks required for era advancement (soldiers) outranks houses.
         if (scr_try_place_barracks(_i, true)) continue;
 
+        // The farm required for era advancement (farmers) outranks houses.
+        if (scr_try_place_farm(_i, true)) continue;
+
         if (random_range(0, 1) <= 0.7)
         {
             if (!scr_try_place_houses(_i))
             {
                 if (!scr_try_place_watchtowers(_i))
                     if (!scr_try_place_workshop(_i))
-                        scr_try_place_barracks(_i);
+                        if (!scr_try_place_barracks(_i))
+                            scr_try_place_farm(_i);
             }
         }
         else
@@ -644,7 +732,8 @@ function scr_try_place_buildings()
             {
                 if (!scr_try_place_houses(_i))
                     if (!scr_try_place_workshop(_i))
-                        scr_try_place_barracks(_i);
+                        if (!scr_try_place_barracks(_i))
+                            scr_try_place_farm(_i);
             }
         }
     }

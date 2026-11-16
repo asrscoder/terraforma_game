@@ -238,6 +238,44 @@ function scr_find_barracks_spot(_village_id)
 ///         1 = ocean east  (pier points right) ->  90 deg
 ///         2 = ocean north (pier points up)    -> 180 deg
 ///         3 = ocean west  (pier points left)  -> 270 deg
+/// @func scr_farm_fits(_v, _gx, _gy)
+/// @desc 2x2 fit test for a farm site.
+function scr_farm_fits(_v, _gx, _gy)
+{
+    if (!scr_rect_can_place_building(_v, _gx, _gy, _gx + 1, _gy + 1)) return false;
+    return !scr_bpad_hit(_gx, _gy, _gx + 1, _gy + 1);
+}
+
+/// @func scr_find_farm_spot(_village_id)
+/// @desc Returns [gx, gy] top-left of a 2x2 farm plot, or [-1,-1].
+function scr_find_farm_spot(_village_id)
+{
+    var _v = global.villages[_village_id];
+
+    var _best       = [-1, -1];
+    var _best_score = 999999;
+    var _ring = 6;
+
+    for (var _gy = _v.top; _gy <= _v.bottom - 1; _gy++)
+    {
+        for (var _gx = _v.left; _gx <= _v.right - 1; _gx++)
+        {
+            if (!scr_farm_fits(_v, _gx, _gy)) continue;
+
+            var _d     = point_distance(_gx + 0.5, _gy + 0.5, _v.cx, _v.cy);
+            var _score = abs(_d - _ring);
+
+            if (_score < _best_score || (_score == _best_score && irandom(1) == 0))
+            {
+                _best_score = _score;
+                _best       = [_gx, _gy];
+            }
+        }
+    }
+
+    return _best;
+}
+
 function scr_port_dir_angle(_dir)
 {
     switch (_dir)

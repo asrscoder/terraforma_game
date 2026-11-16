@@ -235,6 +235,7 @@ function scr_ai_builder(_unit)
                 case "boat_port":  _prio = 4; break;
                 case "workshop":   _prio = 5; break;
                 case "barracks":   _prio = 5; break;
+                case "farm":       _prio = 5; break;
                 case "house_a":    _prio = 6; break;
                 case "house_b":    _prio = 7; break;
                 default:           _prio = 8; break;

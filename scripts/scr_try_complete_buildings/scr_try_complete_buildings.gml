@@ -15,6 +15,7 @@ function scr_building_cost(_building_type, _level)
             case "workshop":   return { wood: 150, stone: 100, iron:   20 };
             case "boat_port":  return { wood: 350, stone: 200, iron:   50 };
             case "barracks":   return { wood: 200, stone: 300, iron:  100 };
+            case "farm":       return { wood: 100, stone:  40, iron:   10 };
         }
     }
     else
@@ -28,6 +29,7 @@ function scr_building_cost(_building_type, _level)
             case "workshop":   return { wood: 100, stone:  50, iron: 0 };
             case "boat_port":  return { wood: 150, stone:  80, iron: 0 };
             case "barracks":   return { wood: 100, stone: 150, iron: 0 };
+            case "farm":       return { wood:  50, stone:  20, iron: 0 };
         }
     }
 
@@ -246,21 +248,21 @@ function scr_try_upgrade_buildings()
         }
         if (_workshop_started) continue;
 
-        // 6) Barracks, one per scan (era-1 hall upgrades to the stone build).
-        var _barracks_started = false;
-        for (var _bri = 0; _bri < array_length(_v.building_list); _bri++)
+        // 6.5) Farms, one per scan (era-1 hall upgrades to the stone build).
+        var _farm_started = false;
+        for (var _fri = 0; _fri < array_length(_v.building_list); _fri++)
         {
-            var _barracks = _v.building_list[_bri];
-            if (!instance_exists(_barracks)) continue;
-            if (_barracks.state != "complete") continue;
-            if (_barracks.building_type != "barracks") continue;
-            if (_barracks.level >= _target_level) continue;
+            var _farm = _v.building_list[_fri];
+            if (!instance_exists(_farm)) continue;
+            if (_farm.state != "complete") continue;
+            if (_farm.building_type != "farm") continue;
+            if (_farm.level >= _target_level) continue;
 
-            scr_start_building_upgrade(_barracks, _target_level);
-            _barracks_started = true;
+            scr_start_building_upgrade(_farm, _target_level);
+            _farm_started = true;
             break;
         }
-        if (_barracks_started) continue;
+        if (_farm_started) continue;
 
         // 7) Houses, one per scan.
         for (var _hi = 0; _hi < array_length(_v.building_list); _hi++)

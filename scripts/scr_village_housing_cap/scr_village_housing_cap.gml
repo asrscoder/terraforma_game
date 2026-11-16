@@ -114,3 +114,19 @@ function scr_village_port_count(_v)
     }
     return _count;
 }
+
+/// @func scr_village_farm_count(_v)
+/// @desc Counts farms listed for a village.
+function scr_village_farm_count(_v)
+{
+    if (_v == undefined || !variable_struct_exists(_v, "building_list")) return 0;
+
+    var _count = 0;
+    for (var _i = 0; _i < array_length(_v.building_list); _i++)
+    {
+        var _b = _v.building_list[_i];
+        if (!instance_exists(_b)) continue;
+        if (_b.building_type == "farm") _count++;
+    }
+    return _count;
+}

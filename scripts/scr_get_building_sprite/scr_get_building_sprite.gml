@@ -83,6 +83,12 @@ function scr_get_building_sprite(_type, _era, _is_roof = false)
             return (_era >= 2) ? spr_building_barracks_era2 : spr_building_barracks_era1;
             break;
 
+        case "farm":
+            // Farms exist in every era; era 3+ reuse the era-2 building.
+            if (_is_roof) return -1;
+            return (_era >= 2) ? spr_building_farm_era2 : spr_building_farm_era1;
+            break;
+
         case "boat_port":
             // Ports exist in every era; era 3+ reuse the era-2 art.
             // Only the shoreline house is returned here — the pier is drawn
@@ -118,6 +124,7 @@ function scr_construction_sprite(_type)
         case "watchtower": return spr_building_construction_8x16;
         case "mine":       return spr_building_construction_8;
         case "workshop":   return spr_building_construction_16;
+        case "farm":       return spr_building_construction_16;
         case "boat_port":  return spr_building_construction_16;
         default:           return spr_building_construction_16;
     }

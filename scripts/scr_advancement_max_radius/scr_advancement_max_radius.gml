@@ -50,6 +50,7 @@ function scr_check_kingdom_level_up()
         if (scr_village_mine_count(_capital)             < scr_era_required_mines(_level))        continue;
         if (scr_village_workshop_count(_capital)         < scr_era_required_workshops(_level))    continue;
         if (scr_village_barracks_count(_capital)         < scr_era_required_barracks(_level))     continue;
+        if (scr_village_farm_count(_capital)             < scr_era_required_farms(_level))         continue;
 
         // Ports only gate kingdoms that could actually build one.
         var _ports_required = scr_era_required_ports(_level);

@@ -26,7 +26,7 @@
   "nineSlice":null,
   "origin":7,
   "parent":{
-    "name":"era_1",
+    "name":"era_2",
     "path":"folders/Sprites/Buildings/Barracks/era_2.yy",
   },
   "preMultiplyAlpha":false,

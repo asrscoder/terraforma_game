@@ -86,6 +86,17 @@ harvest_failed_x = -1;   // last resource we gave up on; skip it next search
 harvest_failed_y = -1;
 mine_dry_scans   = 0;    // >0: target search found nothing, resting until it drops
 
+// === Combat state ===
+hp                = 10;
+max_hp            = 10;
+damage            = 0;
+def               = 0;
+attack_range      = 0;
+attack_cooldown   = 30;
+attack_timer      = 0;
+weapon            = "";
+retreat_threshold = 0.25;
+
 // === Builder state ===
 build_target_id = noone;
 

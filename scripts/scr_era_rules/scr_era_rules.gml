@@ -269,6 +269,76 @@ function scr_era_required_farms(_level)
     return 999999;
 }
 
+/// @func scr_era_soldier_hp(_level)
+/// @desc Base HP for a soldier at this era.
+function scr_era_soldier_hp(_level)
+{
+    switch (_level)
+    {
+        case 1: return 50;
+        case 2: return 80;
+        case 3: return 110;
+        case 4: return 140;
+    }
+    return 50;
+}
+
+/// @func scr_era_soldier_def(_level)
+/// @desc Base defence for a soldier at this era.
+function scr_era_soldier_def(_level)
+{
+    switch (_level)
+    {
+        case 1: return 2;
+        case 2: return 5;
+        case 3: return 8;
+        case 4: return 12;
+    }
+    return 2;
+}
+
+/// @func scr_era_soldier_melee_weapon(_level)
+/// @desc Melee weapon id for a soldier at this era.
+function scr_era_soldier_melee_weapon(_level)
+{
+    switch (_level)
+    {
+        case 1: return "club";
+        case 2: return "sword";
+        case 3: return "spear";
+        case 4: return "spear";
+    }
+    return "club";
+}
+
+/// @func scr_era_soldier_ranged_weapon(_level)
+/// @desc Ranged weapon id for a soldier at this era.
+function scr_era_soldier_ranged_weapon(_level)
+{
+    switch (_level)
+    {
+        case 1: return "sling";
+        case 2: return "bow";
+        case 3: return "crossbow";
+        case 4: return "crossbow";
+    }
+    return "sling";
+}
+
+/// @func scr_era_soldier_ranged_ratio(_level)
+/// @desc Probability (0..1) that a soldier spawns with a ranged loadout.
+function scr_era_soldier_ranged_ratio(_level)
+{
+    switch (_level)
+    {
+        case 1: return 0.25;
+        case 2: return 0.50;
+        case 3: return 0.67;
+        case 4: return 0.67;
+    }
+    return 0.25;
+}
+
 function scr_era_required_child_villages(_level)
 {
     switch (_level)

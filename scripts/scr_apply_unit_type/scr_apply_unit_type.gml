@@ -25,6 +25,11 @@ function scr_apply_unit_type(_unit, _type)
     _unit.damage                = 0;
     _unit.attack_range          = 0;
     _unit.can_attack_air        = false;
+    _unit.def                   = 0;
+    _unit.attack_cooldown       = 30;
+    _unit.attack_timer          = 0;
+    _unit.weapon                = "";
+    _unit.retreat_threshold     = 0.25;
 
     // ==========================================
     // 2. SPECIFIC OVERRIDES
@@ -47,12 +52,33 @@ function scr_apply_unit_type(_unit, _type)
             _unit.wander_radius    = 25;
             _unit.wander_pause_min = 5;
             _unit.wander_pause_max = 15;
-            
+
             _unit.can_leave_territory = true; // Soldiers can patrol outside
-            _unit.hp      = 50;
-            _unit.max_hp  = 50;
-            _unit.damage  = 10;
-            _unit.attack_range = 1; // Melee
+
+            // --- Combat stats (era-scaled) ---
+            var _sera = 1;
+            if (_unit.kingdom_id >= 0
+             && variable_global_exists("kingdoms")
+             && _unit.kingdom_id < array_length(global.kingdoms))
+            {
+                _sera = global.kingdoms[_unit.kingdom_id].advancement_level;
+            }
+            _unit.max_hp = scr_era_soldier_hp(_sera);
+            _unit.hp     = _unit.max_hp;
+            _unit.def    = scr_era_soldier_def(_sera);
+
+            // Weapon loadout: melee vs ranged per era ratio.
+            var _ranged = (random(1) < scr_era_soldier_ranged_ratio(_sera));
+            var _wid = _ranged
+                ? scr_era_soldier_ranged_weapon(_sera)
+                : scr_era_soldier_melee_weapon(_sera);
+            var _ws = scr_weapon_stats(_wid);
+            _unit.weapon          = _wid;
+            _unit.damage          = _ws.damage;
+            _unit.attack_range    = _ws.range;
+            _unit.attack_cooldown = _ws.cooldown;
+            _unit.attack_timer    = 0;
+            _unit.retreat_threshold = 0.25;
             break;
 
         case "farmer":
@@ -138,7 +164,11 @@ function scr_apply_unit_type(_unit, _type)
             _unit.max_hp = 200;
             _unit.damage = 25;
             _unit.attack_range = 4;
-            break;
+            _unit.def = 8;
+            _unit.attack_cooldown = 40;
+            _unit.attack_timer = 0;
+            _unit.weapon = "cannon";
+            _unit.retreat_threshold = 0.3;
         }
 
         case "plane":
@@ -152,7 +182,11 @@ function scr_apply_unit_type(_unit, _type)
             _unit.damage = 50;
             _unit.attack_range = 3;
             _unit.can_attack_air = true;
-            break;
+            _unit.def = 4;
+            _unit.attack_cooldown = 35;
+            _unit.attack_timer = 0;
+            _unit.weapon = "bomb";
+            _unit.retreat_threshold = 0.3;
 
         default:
             _unit.spr_idle = spr_human_villager_idle;
